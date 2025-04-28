@@ -1,0 +1,131 @@
+# config_final_v6_with_integrated_opt.yaml
+
+# --- model_config section (remains the same) ---
+model_config:
+  block_size: 512
+  vocab_size: 256
+  n_layer: 6
+  n_head: 8
+  n_embd: 256
+  dropout: 0.0
+  bias: false
+  attn_alpha_init_val: 0.05
+  attn_alpha_init_scale: null
+  mlp_alpha_init_val: 0.05
+  mlp_alpha_init_scale: null
+  sqk_init_val: 1.0
+  sqk_init_scale: null
+  sz_init_val: 1.0
+  sz_init_scale: null
+  ff_expand_factor: 4
+  su_init_val: 1.0
+  su_init_scale: 1.0
+  sv_init_val: 1.0
+  sv_init_scale: 1.0
+  norm_eps: 1.0e-5
+  rope_theta: 1000000.0
+  ignore_index: 0
+
+# --- data_config section (remains the same) ---
+data_config:
+  dataset_name: "EleutherAI/SmolLM2-1.7B-stage-4-10B"
+  split: "train"
+  text_column: "text"
+  local_processed_path: '/workspace/specngpt/correct_data'
+  base_chunk_size: 512
+  pad_token_id: 0
+  encoding: 'latin1'
+  test_split_size: 0.01
+  num_workers: 32
+  dataloader_persistent_workers: true
+  map_batch_size: 1000
+
+training_config:
+  # --- Run Control ---
+  seed: 42
+  num_epochs: 1
+  batch_size: 256
+  gradient_accumulation_steps: 1
+  output_dir: 'output_ngpt_integrated_v1' # Changed output dir name
+  checkpoint_dir: 'output_ngpt_integrated_v1/checkpoints'
+  resume_from_checkpoint: null
+  debug_limit_dataset_size: null
+  disable_wandb: false
+
+  # --- Optimizer Configuration ---
+  # Use 'custom' or a specific name to signal using the IntegratedOptimizerWrapper
+  optimizer_type: 'smmf'
+  base_optimizer_class_name: 'SMMF' # Name of the base optimizer class to import/use (e.g., 'SMMF', 'AdamW')
+
+  lr: 3.0e-3                 # Base learning rate (used by the wrapper and potentially base opt)
+  # NOTE: Top-level weight_decay is likely ignored by the integrated wrapper.
+  # Weight decay should be handled by 'weight_decay_at_y' (for ScheduleFree part)
+  # and within the 'base_optimizer_params' (e.g., smmf_params['weight_decay'])
+  weight_decay: 0.003 # Set to 0 here, rely on specific params below.
+
+  # --- IntegratedOptimizerWrapper Parameters ---
+  integrated_optimizer_params:
+    # ScheduleFree Params
+    momentum: 0.9             # Default: 0.9
+    weight_decay_at_y: 0.0    # Default: 0.0 (Set this if you want ScheduleFree WD)
+    weight_lr_power: 2.0      # Default: 2.0
+    r: 0.0                    # Default: 0.0
+    # SAM Params
+    rho: 0.05                 # Default: 0.05
+    adaptive_sam: True       # Default: False
+    eps_sam: 1.0e-12          # Default: 1.0e-12
+    # OrthoGrad Params
+    eps_ortho: 1.0e-30        # Default: 1.0e-30
+
+  # --- Base Optimizer Parameters (Choose one section based on base_optimizer_class_name) ---
+  base_optimizer_params: # Arguments passed directly to the base optimizer class constructor
+    # Example for SMMF as base:
+    smmf_params:
+      # lr: (Handled by top-level 'lr')
+      beta: 0.9
+      eps: 1.0e-8
+      weight_decay: 0.003          # SMMF's internal weight decay
+      decay_rate: -0.8
+      growth_rate: 0.999
+      vector_reshape: True
+      weight_decay_mode: 'adamw'
+    # Example for AdamW as base (remove smmf_params if using this):
+    # adamw_params:
+    #   betas: [0.9, 0.95]
+    #   eps: 1.0e-8
+    #   weight_decay: 0.003          # AdamW's internal weight decay
+
+  # --- Scheduler ---
+  # !! MUST be disabled when using ScheduleFree logic !!
+  use_lr_scheduler: True     # Set to false
+  scheduler_type: 'cosine'        # Set to null
+  warmup_steps: 6817          # Set to 0 or null
+
+  # --- Other Settings (Toggles that might need adjustment) ---
+  use_fused_optimizer: False  # Fused optimizers typically don't work with custom wrappers.
+  use_orthograd: False        # OrthoGrad is *inside* the integrated wrapper, so disable standalone toggle.
+  use_gro: False              # Assuming this toggle was meant for the integrated optimizer,
+                              # using optimizer_type='integrated_sam_ortho_schedulefree' handles it.
+                              # Set to false unless your script uses it for something else.
+
+  # --- Training Stability & Performance (Keep as needed) ---
+  apply_grad_clipping: True
+  grad_clip_norm: 0.720
+  use_amp: false              # SAM interaction with AMP requires careful handling of scaler. Might start with false.
+  amp_dtype: 'float16'
+  use_torch_compile: False
+  torch_compile_mode: 'max-autotune'
+
+  # --- Logging & Evaluation (Keep as needed) ---
+  log_interval: 1
+  eval_interval: 500
+  eval_subset_size: 200
+  eval_full_at_epoch_end: true
+  save_interval: 0
+  save_at_epoch_end: true
+
+# --- wandb_config section (remains the same) ---
+wandb_config:
+  project: 'ngpt-byte-integrated-v1' # Updated project name
+  entity: null
+  run_name: null
