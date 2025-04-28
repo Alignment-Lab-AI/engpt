@@ -3,7 +3,7 @@
 This repository contains the PyTorch implementation of the Normalized Transformer (nGPT), an architecture designed for representation learning on the hypersphere, as described in the paper "NGPT: NORMALIZED TRANSFORMER WITH REPRESENTATION LEARNING ON THE HYPERSPHERE" (Published as a conference paper at ICLR 2025).
 
 
-## Core Concepts
+## NGPT
 
 nGPT modifies the standard Transformer by enforcing normalization constraints throughout the network, based on the principle that embeddings, matrix components, and hidden states reside on a unit hypersphere.
 
